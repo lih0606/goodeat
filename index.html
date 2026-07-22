@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>찐 맛집 지도</title>
+  
+  <!-- Tailwind CSS 로드 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- CSV 파싱을 위한 PapaParse 라이브러리 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- 웹 폰트 -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- 
+    🚨 [필수 수정] 카카오맵 API 키 설정 🚨
+    아래 src 주소의 appkey 파라미터 값(YOUR_KAKAO_APP_KEY_HERE)을 
+    카카오 디벨로퍼스에서 발급받은 본인의 JavaScript 키로 반드시 변경하세요.
+  -->
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_APP_KEY_HERE&libraries=services"></script>
+
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    
+    /* 지도 위 커스텀 오버레이 말풍선 스타일 */
+    .custom-overlay {
+      background: white;
+      border-radius: 8px;
+      padding: 8px 12px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      font-size: 14px;
+      border: 1px solid #fed7aa; /* Tailwind orange-200 */
+      position: relative;
+      bottom: 45px;
+      white-space: nowrap;
+    }
+    .custom-overlay::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 8px 8px 0;
+      border-style: solid;
+      border-color: white transparent transparent transparent;
+      display: block;
+      width: 0;
+    }
+
+    /* 스크롤바 숨기기 (모바일에서 깔끔한 UI 제공) */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 overflow-hidden">
+  
+  <div class="flex flex-col md:flex-row h-screen w-full">
+    
+    <!-- 모바일: 하단 리스트 / PC: 좌측 리스트 사이드바 -->
+    <div class="w-full md:w-[420px] h-[50vh] md:h-full bg-white shadow-2xl z-10 flex flex-col flex-shrink-0 order-2 md:order-1 transition-all">
+      
+      <!-- 상단 헤더 -->
+      <div class="p-5 bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-md">
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          🍽️ 우리동네 맛집 리스트
+        </h1>
+        <p class="text-orange-50 text-sm mt-1 opacity-90">믿고 먹는 추천 맛집만 모았습니다.</p>
+      </div>
+
+      <!-- 리스트 컨테이너 -->
+      <div id="restaurant-list" class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 bg-gray-50/50">
+        <!-- 스켈레톤 로딩 UI -->
+        <div class="animate-pulse flex space-x-4">
+          <div class="flex-1 space-y-4 py-1">
+            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div class="space-y-2">
+              <div class="h-4 bg-gray-200 rounded"></div>
+              <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽(PC) 또는 상단(모바일) 지도 영역 -->
+    <div class="flex-1 h-[50vh] md:h-full relative order-1 md:order-2">
+      <div id="map" class="w-full h-full bg-gray-200"></div>
+      
+      <!-- 카카오 API 키가 누락되었을 때 뜨는 에러 배너 -->
+      <div id="api-error-banner" class="hidden absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-600/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-2xl z-20 whitespace-nowrap text-sm font-semibold border border-red-400">
+        ⚠️ 카카오맵 API 키 설정이 필요합니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- 사용자가 쉽게 세팅할 수 있도록 띄우는 안내창 (API 키가 없으면 표시됨) -->
+  <div id="guide-modal" class="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl transform transition-all">
+      <h2 class="text-2xl font-extrabold text-gray-900 mb-2">🚀 앱 시작 가이드</h2>
+      <p class="text-gray-500 mb-6 text-sm">
+        이 웹앱을 완벽하게 배포하려면 <span class="font-bold text-gray-700">index.html</span> 소스 코드에서 다음 두 가지를 설정해야 합니다.
+      </p>
+      
+      <div class="space-y-5 text-sm">
+        <!-- 1단계 -->
+        <div class="bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+          <h3 class="font-bold text-orange-800 text-base mb-1">1. 지도 활성화 (카카오 API)</h3>
+          <p class="text-gray-600 mb-2">카카오 디벨로퍼스에서 JavaScript 키를 발급받아 코드 17번째 줄을 교체하세요.</p>
+          <code class="block bg-white p-2 rounded border border-gray-200 text-red-500 font-mono text-xs overflow-x-auto">YOUR_KAKAO_APP_KEY_HERE</code>
+        </div>
+        
+        <!-- 2단계 -->
+        <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+          <h3 class="font-bold text-blue-800 text-base mb-1">2. 깃허브 CSV 데이터 연동</h3>
+          <p class="text-gray-600 mb-2">CSV 파일을 깃허브에 올리고 Raw URL을 복사하여 자바스크립트 변수에 넣으세요.</p>
+          <code class="block bg-white p-2 rounded border border-gray-200 text-blue-600 font-mono text-xs overflow-x-auto">const CSV_URL = "여기에 붙여넣기";</code>
+        </div>
+      </div>
+      
+      <button onclick="closeModal()" class="mt-8 w-full bg-gray-900 hover:bg-black text-white font-bold py-3.5 rounded-xl transition shadow-lg active:scale-95">
+        이해했습니다 (임시 샘플 보기)
+      </button>
+    </div>
+  </div>
+
+  <script>
+    
+    // ==========================================
+    // ⚙️ [필수 수정] 깃허브 CSV 파일 URL 지정
+    // ==========================================
+    // 깃허브에서 CSV 파일을 열고 'Raw' 버튼을 누른 주소를 여기에 붙여넣으세요.
+    // 예: "https://raw.githubusercontent.com/사용자명/레포명/main/data.csv"
+    const CSV_URL = ""; 
+
+    // CSV 파일에 접근하지 못하거나 설정하지 않았을 때 화면에 보여질 '임시 샘플 데이터'입니다.
+    // (이 구조와 동일하게 CSV 파일을 작성하시면 됩니다.)
+    const SAMPLE_DATA = [
+      { name: "도렐 커피 (성수점)", address: "서울 성동구 연무장7길 11", phone: "02-123-4567", latitude: 37.5446, longitude: 127.0560, menu: "너티 클라우드", price: "6,500원" },
+      { name: "제주 은희네 해장국", address: "제주특별자치도 제주시 고마로 13", phone: "064-726-5622", latitude: 33.5132, longitude: 126.5414, menu: "소고기 해장국", price: "10,000원" },
+      { name: "해운대 암소갈비집", address: "부산 해운대구 중동2로10번길 32", phone: "051-746-0033", latitude: 35.1634, longitude: 129.1666, menu: "생갈비, 감자사리", price: "48,000원" },
+      { name: "강릉 엄지네 포장마차", address: "강원 강릉시 경강로2255번길 21", phone: "033-642-0178", latitude: 37.7651, longitude: 128.8998, menu: "꼬막무침 비빔밥", price: "35,000원" }
+    ];
+
+    let map;
+    let markers = [];
+    let customOverlays = [];
+    let restaurantData = [];
+
+    // 앱 로드 시점
+    window.onload = function() {
+      checkKakaoMapAPI();
+    };
+
+    function checkKakaoMapAPI() {
+      // 카카오맵 스크립트가 로드되지 않은 경우 (API 키 미입력 시 발생)
+      if (typeof kakao === 'undefined' || !kakao.maps) {
+        document.getElementById('api-error-banner').classList.remove('hidden');
+        document.getElementById('guide-modal').classList.remove('hidden');
+        
+        // 지도를 띄울 수 없으므로 좌측 리스트에 샘플 데이터만 렌더링
+        restaurantData = SAMPLE_DATA;
+        renderList();
+        return;
+      }
+      
+      // API가 정상 로드되면 SDK 내 기능 로드 후 맵 생성
+      kakao.maps.load(function() {
+        initMap();
+        loadCSVData();
+      });
+    }
+
+    function closeModal() {
+      document.getElementById('guide-modal').classList.add('hidden');
+    }
+
+    function initMap() {
+      const mapContainer = document.getElementById('map');
+      // 초기 중심좌표를 대한민국 중심(서울시청 부근)으로 설정
+      const mapOptions = {
+        center: new kakao.maps.LatLng(37.566535, 126.9779692), 
+        level: 11 // 줌 레벨 (숫자가 클수록 축소됨)
+      };
+      
+      map = new kakao.maps.Map(mapContainer, mapOptions);
+      
+      // 지도 우측에 줌 컨트롤(확대/축소) 버튼 추가
+      const zoomControl = new kakao.maps.ZoomControl();
+      map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+    }
+
+    function loadCSVData() {
+      if (CSV_URL && CSV_URL.trim() !== "") {
+        Papa.parse(CSV_URL, {
+          download: true,
+          header: true, // 첫 줄을 키(Key) 값으로 사용
+          skipEmptyLines: true,
+          complete: function(results) {
+            console.log("✅ CSV 파싱 성공:", results.data);
+            restaurantData = results.data;
+            processAndRender();
+          },
+          error: function(err) {
+            console.error("❌ CSV 로드 실패:", err);
+            alert("CSV 파일을 가져오지 못했습니다. 임시 샘플 데이터로 실행합니다.");
+            restaurantData = SAMPLE_DATA;
+            processAndRender();
+          }
+        });
+      } else {
+        // CSV URL이 비어있으면 기본 샘플 데이터 사용
+        restaurantData = SAMPLE_DATA;
+        processAndRender();
+      }
+    }
+
+    function processAndRender() {
+      if (!restaurantData || restaurantData.length === 0) return;
+
+      renderMapMarkers();
+      renderList();
+      
+      // 모든 마커가 화면에 들어오도록 지도의 중심점과 확대 범위를 자동 조정
+      if (map) {
+        const bounds = new kakao.maps.LatLngBounds();
+        let validPoints = 0;
+        
+        restaurantData.forEach(item => {
+          if (item.latitude && item.longitude) {
+            bounds.extend(new kakao.maps.LatLng(item.latitude, item.longitude));
+            validPoints++;
+          }
+        });
+        
+        if(validPoints > 0) {
+           map.setBounds(bounds);
+        }
+      }
+    }
+
+    function renderMapMarkers() {
+      if (!map) return;
+      
+      // 기존 마커 및 말풍선 오버레이 클리어
+      markers.forEach(m => m.setMap(null));
+      customOverlays.forEach(o => o.setMap(null));
+      markers = [];
+      customOverlays = [];
+
+      restaurantData.forEach((item, index) => {
+        // 문자열을 소수로 변환
+        const lat = parseFloat(item.latitude);
+        const lng = parseFloat(item.longitude);
+        
+        // 좌표가 없는 잘못된 데이터는 무시
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const position = new kakao.maps.LatLng(lat, lng);
+
+        // 기본 카카오 마커 생성
+        const marker = new kakao.maps.Marker({
+          map: map,
+          position: position,
+          title: item.name
+        });
+        
+        // 예쁜 커스텀 오버레이 (마커 클릭 시 팝업) 생성
+        const contentHTML = `
+          <div class="custom-overlay">
+            <span class="font-bold text-orange-600">${item.name}</span>
+          </div>
+        `;
+        const overlay = new kakao.maps.CustomOverlay({
+          content: contentHTML,
+          position: position,
+          yAnchor: 1, // 마커 위쪽으로 배치
+          zIndex: 3
+        });
+        
+        // [이벤트] 지도에서 마커를 클릭했을 때
+        kakao.maps.event.addListener(marker, 'click', function() {
+          // 다른 열려있는 말풍선 닫기
+          customOverlays.forEach(o => o.setMap(null));
+          // 현재 마커 말풍선 열기
+          overlay.setMap(map);
+          // 지도의 중심을 마커로 부드럽게 이동
+          map.panTo(position);
+          // 좌측 사이드바 리스트에서도 해당 아이템 시각적 강조 및 스크롤 이동
+          highlightListItem(index);
+        });
+
+        // [이벤트] 지도의 빈 공간을 클릭하면 말풍선 닫기
+        kakao.maps.event.addListener(map, 'click', function() {
+          overlay.setMap(null);
+        });
+
+        markers.push(marker);
+        customOverlays.push(overlay);
+      });
+    }
+
+    function renderList() {
+      const listContainer = document.getElementById('restaurant-list');
+      listContainer.innerHTML = ''; // 스켈레톤 로딩 제거 및 비우기
+
+      if (restaurantData.length === 0) {
+        listContainer.innerHTML = '<div class="text-gray-500 text-center p-8 bg-white rounded-xl">데이터가 없습니다.</div>';
+        return;
+      }
+
+      restaurantData.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.id = `list-item-${index}`;
+        // 반응형 및 Hover 스타일 적용
+        card.className = "bg-white p-5 rounded-2xl shadow-sm border border-gray-100 cursor-pointer hover:shadow-lg hover:border-orange-300 transition-all duration-300 group";
+        
+        // [이벤트] 리스트의 카드를 클릭했을 때
+        card.onclick = () => {
+          highlightListItem(index);
+
+          // 지도 이동 및 말풍선 띄우기 연동
+          if (map) {
+            const lat = parseFloat(item.latitude);
+            const lng = parseFloat(item.longitude);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              const position = new kakao.maps.LatLng(lat, lng);
+              map.panTo(position);
+              
+              customOverlays.forEach(o => o.setMap(null));
+              if (customOverlays[index]) {
+                customOverlays[index].setMap(map);
+              }
+            }
+          }
+        };
+
+        card.innerHTML = `
+          <h3 class="font-bold text-lg text-gray-900 group-hover:text-orange-600 transition-colors tracking-tight">${item.name || '상호명 없음'}</h3>
+          
+          <div class="mt-3 text-sm text-gray-500 flex flex-col gap-1.5">
+            <p class="flex items-start gap-2">
+              <span class="text-orange-400 mt-0.5">📍</span>
+              <span class="leading-tight">${item.address || '주소 정보 없음'}</span>
+            </p>
+            <p class="flex items-center gap-2">
+              <span class="text-orange-400">📞</span>
+              <span>${item.phone || '전화번호 없음'}</span>
+            </p>
+          </div>
+          
+          <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-sm">
+            <span class="bg-orange-50 text-orange-700 px-2.5 py-1 rounded-md font-semibold text-xs border border-orange-100 line-clamp-1">
+              ✨ ${item.menu || '-'}
+            </span>
+            <span class="font-extrabold text-gray-800 text-base">${item.price ? item.price : '-'}</span>
+          </div>
+        `;
+        
+        listContainer.appendChild(card);
+      });
+    }
+
+    function highlightListItem(index) {
+      // 모든 카드의 하이라이트 상태 초기화
+      document.querySelectorAll('#restaurant-list > div').forEach(el => {
+        el.classList.remove('ring-2', 'ring-orange-400', 'bg-orange-50/50');
+      });
+      
+      const targetCard = document.getElementById(`list-item-${index}`);
+      if (targetCard) {
+        // 선택된 카드 하이라이트
+        targetCard.classList.add('ring-2', 'ring-orange-400', 'bg-orange-50/50');
+        // 부드럽게 화면 중앙으로 스크롤 이동
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  </script>
+</body>
+</html>
