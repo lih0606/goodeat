@@ -17,7 +17,7 @@
     아래 src 주소의 appkey 파라미터 값(YOUR_KAKAO_APP_KEY_HERE)을 
     카카오 디벨로퍼스에서 발급받은 본인의 JavaScript 키로 반드시 변경하세요.
   -->
-  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=8f07f1e2c107202440e5c6cf805bcadf&libraries=services"></script>
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=605b3ee65be2f824b6904ad520fec34e&libraries=services"></script>
 
   <style>
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
@@ -93,38 +93,8 @@
       
       <!-- 카카오 API 키가 누락되었을 때 뜨는 에러 배너 -->
       <div id="api-error-banner" class="hidden absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-600/90 backdrop-blur text-white px-6 py-3 rounded-full shadow-2xl z-20 whitespace-nowrap text-sm font-semibold border border-red-400">
-        ⚠️ 카카오맵 API 키 설정이 필요합니다.
+        ⚠️ 카카오맵을 불러올 수 없습니다. API 키 및 도메인 설정을 확인해주세요.
       </div>
-    </div>
-  </div>
-
-  <!-- 사용자가 쉽게 세팅할 수 있도록 띄우는 안내창 (API 키가 없으면 표시됨) -->
-  <div id="guide-modal" class="fixed inset-0 bg-gray-900/70 z-50 flex items-center justify-center p-4 hidden backdrop-blur-sm">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl transform transition-all">
-      <h2 class="text-2xl font-extrabold text-gray-900 mb-2">🚀 앱 시작 가이드</h2>
-      <p class="text-gray-500 mb-6 text-sm">
-        이 웹앱을 완벽하게 배포하려면 <span class="font-bold text-gray-700">index.html</span> 소스 코드에서 다음 두 가지를 설정해야 합니다.
-      </p>
-      
-      <div class="space-y-5 text-sm">
-        <!-- 1단계 -->
-        <div class="bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-          <h3 class="font-bold text-orange-800 text-base mb-1">1. 지도 활성화 (카카오 API)</h3>
-          <p class="text-gray-600 mb-2">카카오 디벨로퍼스에서 JavaScript 키를 발급받아 코드 17번째 줄을 교체하세요.</p>
-          <code class="block bg-white p-2 rounded border border-gray-200 text-red-500 font-mono text-xs overflow-x-auto">YOUR_KAKAO_APP_KEY_HERE</code>
-        </div>
-        
-        <!-- 2단계 -->
-        <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-          <h3 class="font-bold text-blue-800 text-base mb-1">2. 깃허브 CSV 데이터 연동</h3>
-          <p class="text-gray-600 mb-2">CSV 파일을 깃허브에 올리고 Raw URL을 복사하여 자바스크립트 변수에 넣으세요.</p>
-          <code class="block bg-white p-2 rounded border border-gray-200 text-blue-600 font-mono text-xs overflow-x-auto">const CSV_URL = "여기에 붙여넣기";</code>
-        </div>
-      </div>
-      
-      <button onclick="closeModal()" class="mt-8 w-full bg-gray-900 hover:bg-black text-white font-bold py-3.5 rounded-xl transition shadow-lg active:scale-95">
-        닫기
-      </button>
     </div>
   </div>
 
@@ -148,10 +118,9 @@
     };
 
     function checkKakaoMapAPI() {
-      // 카카오맵 스크립트가 로드되지 않은 경우 (API 키 미입력 시 발생)
+      // 카카오맵 스크립트가 로드되지 않은 경우 (API 키 오류 또는 도메인 미등록 시 발생)
       if (typeof kakao === 'undefined' || !kakao.maps) {
         document.getElementById('api-error-banner').classList.remove('hidden');
-        document.getElementById('guide-modal').classList.remove('hidden');
         
         // 지도를 띄울 수 없으므로 빈 리스트 렌더링
         restaurantData = [];
@@ -164,10 +133,6 @@
         initMap();
         loadCSVData();
       });
-    }
-
-    function closeModal() {
-      document.getElementById('guide-modal').classList.add('hidden');
     }
 
     function initMap() {
