@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>또먹게?</title>
+  <title>설마, 또 먹게?</title>
   
   <!-- Tailwind CSS 로드 -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -68,12 +68,22 @@
       <!-- 상단 헤더 -->
       <div class="p-5 bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-md">
         <h1 class="text-2xl font-bold flex items-center gap-2">
-          🍽️ 또먹게?
+          🍽️ 설마, 또 먹게?
         </h1>
         <p class="text-orange-50 text-sm mt-1 opacity-90">믿고 먹는 추천 맛집만 모았습니다.</p>
         <p class="text-orange-100 text-xs mt-3 opacity-90 flex items-center gap-1">
           💡 음식점 추천하기: <a href="mailto:leeilhak@gmail.com" class="hover:text-white underline underline-offset-2 transition-colors">leeilhak@gmail.com</a>
         </p>
+      </div>
+
+      <!-- 검색바 영역 추가 -->
+      <div class="px-4 pt-4 pb-2 bg-gray-50/50 border-b border-gray-100 z-10 relative shadow-sm">
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span class="text-gray-400 text-sm">🔍</span>
+          </div>
+          <input type="text" id="search-input" class="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent text-sm transition-all shadow-sm bg-white placeholder-gray-400" placeholder="식당 이름, 주소, 메뉴 검색...">
+        </div>
       </div>
 
       <!-- 리스트 컨테이너 -->
@@ -113,10 +123,12 @@
     let markers = [];
     let customOverlays = [];
     let restaurantData = [];
+    let filteredData = []; // 검색된 데이터를 관리할 배열 추가
 
     // 앱 로드 시점
     window.onload = function() {
       checkKakaoMapAPI();
+      initSearch(); // 검색 기능 이벤트 초기화
     };
 
     function checkKakaoMapAPI() {
@@ -177,33 +189,62 @@
               };
             });
             
+            filteredData = [...restaurantData]; // 원본 복사하여 필터 데이터 초기화
             processAndRender();
           },
           error: function(err) {
             console.error("❌ CSV 로드 실패:", err);
             alert("CSV 파일을 가져오지 못했습니다. 파일 경로를 확인해주세요.");
             restaurantData = [];
+            filteredData = [];
             processAndRender();
           }
         });
       } else {
         restaurantData = [];
+        filteredData = [];
         processAndRender();
       }
     }
 
+    // 검색창 이벤트 리스너 함수 추가
+    function initSearch() {
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+          const term = e.target.value.trim().toLowerCase();
+          
+          if (term === '') {
+            // 검색어가 없으면 전체 데이터 복구
+            filteredData = [...restaurantData];
+          } else {
+            // 이름, 주소, 메뉴 중 하나라도 검색어를 포함하면 필터링
+            filteredData = restaurantData.filter(item => {
+              const nameMatch = item.name && item.name.toLowerCase().includes(term);
+              const addressMatch = item.address && item.address.toLowerCase().includes(term);
+              const menuMatch = item.menu && item.menu.toLowerCase().includes(term);
+              return nameMatch || addressMatch || menuMatch;
+            });
+          }
+          
+          // 검색된 데이터로 화면 다시 렌더링
+          processAndRender(); 
+        });
+      }
+    }
+
     function processAndRender() {
-      if (!restaurantData || restaurantData.length === 0) return;
+      if (!filteredData) return;
 
       renderMapMarkers();
       renderList();
       
-      // 모든 마커가 화면에 들어오도록 지도의 중심점과 확대 범위를 자동 조정
-      if (map) {
+      // 검색된 마커가 모두 화면에 들어오도록 지도의 중심점과 확대 범위를 자동 조정
+      if (map && filteredData.length > 0) {
         const bounds = new kakao.maps.LatLngBounds();
         let validPoints = 0;
         
-        restaurantData.forEach(item => {
+        filteredData.forEach(item => {
           // 명시적으로 숫자로 변환 후 검증하여 오류 방지
           const lat = parseFloat(item.latitude);
           const lng = parseFloat(item.longitude);
@@ -229,7 +270,7 @@
       markers = [];
       customOverlays = [];
 
-      restaurantData.forEach((item, index) => {
+      filteredData.forEach((item, index) => { // 변경: restaurantData -> filteredData
         // 문자열을 소수로 변환
         const lat = parseFloat(item.latitude);
         const lng = parseFloat(item.longitude);
@@ -311,12 +352,12 @@
       const listContainer = document.getElementById('restaurant-list');
       listContainer.innerHTML = ''; // 스켈레톤 로딩 제거 및 비우기
 
-      if (restaurantData.length === 0) {
-        listContainer.innerHTML = '<div class="text-gray-500 text-center p-8 bg-white rounded-xl">데이터가 없습니다.</div>';
+      if (filteredData.length === 0) { // 변경: restaurantData -> filteredData
+        listContainer.innerHTML = '<div class="text-gray-500 text-center p-8 bg-white rounded-xl">검색 결과가 없습니다.</div>';
         return;
       }
 
-      restaurantData.forEach((item, index) => {
+      filteredData.forEach((item, index) => { // 변경: restaurantData -> filteredData
         const card = document.createElement('div');
         card.id = `list-item-${index}`;
         // 반응형 및 Hover 스타일 적용
