@@ -17,7 +17,7 @@
     아래 src 주소의 appkey 파라미터 값(YOUR_KAKAO_APP_KEY_HERE)을 
     카카오 디벨로퍼스에서 발급받은 본인의 JavaScript 키로 반드시 변경하세요.
   -->
-  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_APP_KEY_HERE&libraries=services"></script>
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=8f07f1e2c107202440e5c6cf805bcadf&libraries=services"></script>
 
   <style>
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
@@ -123,7 +123,7 @@
       </div>
       
       <button onclick="closeModal()" class="mt-8 w-full bg-gray-900 hover:bg-black text-white font-bold py-3.5 rounded-xl transition shadow-lg active:scale-95">
-        이해했습니다 (임시 샘플 보기)
+        닫기
       </button>
     </div>
   </div>
@@ -134,17 +134,8 @@
     // ⚙️ [필수 수정] 깃허브 CSV 파일 URL 지정
     // ==========================================
     // 깃허브에서 CSV 파일을 열고 'Raw' 버튼을 누른 주소를 여기에 붙여넣으세요.
-    // 예: "https://raw.githubusercontent.com/사용자명/레포명/main/data.csv"
-    const CSV_URL = ""; 
-
-    // CSV 파일에 접근하지 못하거나 설정하지 않았을 때 화면에 보여질 '임시 샘플 데이터'입니다.
-    // (이 구조와 동일하게 CSV 파일을 작성하시면 됩니다.)
-    const SAMPLE_DATA = [
-      { name: "도렐 커피 (성수점)", address: "서울 성동구 연무장7길 11", phone: "02-123-4567", latitude: 37.5446, longitude: 127.0560, menu: "너티 클라우드", price: "6,500원" },
-      { name: "제주 은희네 해장국", address: "제주특별자치도 제주시 고마로 13", phone: "064-726-5622", latitude: 33.5132, longitude: 126.5414, menu: "소고기 해장국", price: "10,000원" },
-      { name: "해운대 암소갈비집", address: "부산 해운대구 중동2로10번길 32", phone: "051-746-0033", latitude: 35.1634, longitude: 129.1666, menu: "생갈비, 감자사리", price: "48,000원" },
-      { name: "강릉 엄지네 포장마차", address: "강원 강릉시 경강로2255번길 21", phone: "033-642-0178", latitude: 37.7651, longitude: 128.8998, menu: "꼬막무침 비빔밥", price: "35,000원" }
-    ];
+    // 같은 폴더에 list.csv 파일이 있다면 아래와 같이 파일명만 적어주시면 됩니다.
+    const CSV_URL = "list.csv"; 
 
     let map;
     let markers = [];
@@ -162,8 +153,8 @@
         document.getElementById('api-error-banner').classList.remove('hidden');
         document.getElementById('guide-modal').classList.remove('hidden');
         
-        // 지도를 띄울 수 없으므로 좌측 리스트에 샘플 데이터만 렌더링
-        restaurantData = SAMPLE_DATA;
+        // 지도를 띄울 수 없으므로 빈 리스트 렌더링
+        restaurantData = [];
         renderList();
         return;
       }
@@ -207,14 +198,14 @@
           },
           error: function(err) {
             console.error("❌ CSV 로드 실패:", err);
-            alert("CSV 파일을 가져오지 못했습니다. 임시 샘플 데이터로 실행합니다.");
-            restaurantData = SAMPLE_DATA;
+            alert("CSV 파일을 가져오지 못했습니다. 파일 경로를 확인해주세요.");
+            restaurantData = [];
             processAndRender();
           }
         });
       } else {
-        // CSV URL이 비어있으면 기본 샘플 데이터 사용
-        restaurantData = SAMPLE_DATA;
+        // CSV URL이 비어있으면 빈 배열 사용
+        restaurantData = [];
         processAndRender();
       }
     }
