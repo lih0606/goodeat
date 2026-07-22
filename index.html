@@ -173,7 +173,7 @@
                 latitude: lat.trim(),
                 longitude: lng.trim(),
                 menu: menu.trim(),
-                recommendCount: parseInt(recommend.trim(), 10) || 0
+                recommendValue: recommend.trim() // 숫자뿐만 아니라 문자(지인추천)도 처리하기 위해 문자열 그대로 저장
               };
             });
             
@@ -246,8 +246,14 @@
           title: item.name
         });
         
-        // 추천 갯수만큼 엄지손가락 이모지 반복 생성
-        const thumbsUpStr = item.recommendCount > 0 ? '👍'.repeat(item.recommendCount) : '';
+        // 추천 값이 '지인추천'인 경우 예쁜 뱃지로, 숫자인 경우 엄지 이모지로 표시
+        let recommendBadge = '';
+        if (item.recommendValue === '지인추천') {
+          recommendBadge = '<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-md align-middle shadow-sm border border-blue-200 leading-none">지인추천 👥</span>';
+        } else {
+          const count = parseInt(item.recommendValue, 10) || 0;
+          recommendBadge = count > 0 ? ' <span class="align-middle tracking-widest pl-0.5">' + '👍'.repeat(count) + '</span>' : '';
+        }
         
         // 예쁜 커스텀 오버레이 (마커 클릭 시 팝업) 생성
         const contentHTML = `
@@ -267,7 +273,7 @@
             </div>
             <div class="text-xs flex flex-col gap-2">
               <span class="bg-orange-50 text-orange-700 px-2 py-1 rounded border border-orange-100 font-medium inline-block w-full truncate">
-                ${item.menu || '-'} ${thumbsUpStr}
+                ${item.menu || '-'}${recommendBadge}
               </span>
             </div>
           </div>
@@ -336,8 +342,14 @@
           }
         };
 
-        // 추천 갯수만큼 엄지손가락 이모지 반복 생성
-        const thumbsUpStr = item.recommendCount > 0 ? '👍'.repeat(item.recommendCount) : '';
+        // 추천 값이 '지인추천'인 경우 예쁜 뱃지로, 숫자인 경우 엄지 이모지로 표시
+        let recommendBadge = '';
+        if (item.recommendValue === '지인추천') {
+          recommendBadge = '<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-md align-middle shadow-sm border border-blue-200 leading-none">지인추천 👥</span>';
+        } else {
+          const count = parseInt(item.recommendValue, 10) || 0;
+          recommendBadge = count > 0 ? ' <span class="align-middle tracking-widest pl-0.5">' + '👍'.repeat(count) + '</span>' : '';
+        }
 
         card.innerHTML = `
           <div class="flex justify-between items-start gap-2">
@@ -360,7 +372,7 @@
           <div class="mt-4 pt-4 border-t border-gray-100 flex flex-col gap-2 text-sm">
             <div class="flex justify-between items-center text-sm">
               <span class="bg-orange-50 text-orange-700 px-2.5 py-1 rounded-md font-semibold text-xs border border-orange-100 line-clamp-1">
-                ${item.menu || '-'} ${thumbsUpStr}
+                ${item.menu || '-'}${recommendBadge}
               </span>
             </div>
           </div>
